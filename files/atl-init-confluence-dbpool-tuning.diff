@@ -1,0 +1,11 @@
+--- atl-init-confluence.orig	2017-08-16 14:39:06.983058452 -0400
++++ atl-init-confluence	2017-08-16 15:49:01.810380513 -0400
+@@ -115,6 +115,8 @@
+     <property name="hibernate.connection.password">${ATL_JDBC_PASSWORD}</property>
+     <property name="hibernate.connection.username">${ATL_JDBC_USER}</property>
+     <property name="hibernate.dialect">com.atlassian.confluence.impl.hibernate.dialect.PostgreSQLDialect</property>
++    <property name="hibernate.c3p0.min_size">${ATL_DB_MIN_POOL_SIZE}</property>
++    <property name="hibernate.c3p0.max_size">${ATL_DB_MAX_POOL_SIZE}</property>
+     <property name="webwork.multipart.saveDir">\${localHome}/temp</property>
+     <property name="attachments.dir">\${confluenceHome}/attachments</property>
+ EOT

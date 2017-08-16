@@ -15,7 +15,7 @@ Metadata:
         Parameters: [ClusterNodeInstanceType, ClusterNodeMin, ClusterNodeMax, SynchronyClusterNodeMin, SynchronyClusterNodeMax, SynchronyNodeInstanceType]
       - Label:
           default: Database
-        Parameters: [DBInstanceClass, DBMasterUserPassword, DBPassword, DBStorage, DBStorageType, DBIops, DBMultiAZ]
+        Parameters: [DBInstanceClass, DBMasterUserPassword, DBPassword, DBStorage, DBStorageType, DBIops, DBPoolMinSize, DBPoolMaxSize, DBMultiAZ]
       - Label:
           default: Networking
         Parameters: [VPC, ExternalSubnets, InternalSubnets, AssociatePublicIpAddress, CidrBlock, KeyName, SSLCertificateName]
@@ -52,6 +52,10 @@ Metadata:
         default: Master password *
       DBPassword:
         default: Confluence database password *
+      DBPoolMinSize:
+        default: Database pool minimum size (per node)
+      DBPoolMaxSize:
+        default: Database pool maximum size (per node)
       DBStorage:
         default: Database storage
       DBStorageType:
@@ -181,6 +185,20 @@ Parameters:
     MinLength: 8
     MaxLength: 128
     Type: String
+  DBPoolMinSize:
+    Description: "Minimum size of database connection pool on a Jira node"
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 1000
+    ConstraintDescription: "Must be in the range 20 - 1000."
+  DBPoolMaxSize:
+    Description: "Maximum size of database connection pool on a Jira node"
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 1000
+    ConstraintDescription: "Must be in the range 20 - 1000."
   DBStorage:
     Description: Database allocated storage size, in gigabytes (GB)
     Default: 10
@@ -491,6 +509,8 @@ Resources:
                         DBEndpointPort: !GetAtt DB.Endpoint.Port
                     - "ATL_JDBC_USER=atlconfluence"
                     - !Sub ["ATL_JDBC_PASSWORD=${DBPassword}", DBPassword: !Ref DBPassword]
+                    - !Sub ["ATL_DB_MIN_POOL_SIZE=${DBPoolMinSize}", DBPoolMinSize: !Ref DBPoolMinSize]
+                    - !Sub ["ATL_DB_MAX_POOL_SIZE=${DBPoolMaxSize}", DBPoolMaxSize: !Ref DBPoolMaxSize]
                     - "ATL_ENABLED_PRODUCTS=Confluence"
                     - "ATL_ENABLED_SHARED_HOMES="
                     - !Sub ["ATL_CONFLUENCE_VERSION=${ConfluenceVersion}", ConfluenceVersion: !Ref ConfluenceVersion]
@@ -505,6 +525,8 @@ Resources:
                     - !Sub ["ATL_HAZELCAST_NETWORK_AWS_IAM_REGION=${HazelcastAWSRegion}", HazelcastAWSRegion: !Ref "AWS::Region"]
                     - "ATL_HAZELCAST_NETWORK_AWS_TAG_KEY=Cluster"
                     - !Sub ["ATL_HAZELCAST_NETWORK_AWS_TAG_VALUE=${HazelcastAWSTagValue}", HazelcastAWSTagValue: !Ref "AWS::StackName"]
+            /root/atl-init-confluence-dbpool-tuning.diff:
+              source: https://paytmlabs-atlassian-software.s3.amazonaws.com/patches/atl-init-confluence-dbpool-tuning.diff
             /etc/cfn/cfn-hup.conf:
               content: !Join
                 - "\n"
@@ -549,6 +571,12 @@ Resources:
               ignoreErrors: false
             030_mount_all:
               command: mount -a
+              ignoreErrors: false
+            034_yum_install_patch:
+              command: yum -y install patch
+              ignoreErrors: false
+            036_patch_atl_confluence_init_dbpool:
+              command: patch /etc/init.d/atl-init-confluence /root/atl-init-confluence-dbpool-tuning.diff
               ignoreErrors: false
             040_make_shared_home_dir:
               command: mkdir -p /media/atl/confluence/shared-home
