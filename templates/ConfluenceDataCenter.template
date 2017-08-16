@@ -18,7 +18,7 @@ Metadata:
         Parameters: [DBInstanceClass, DBMasterUserPassword, DBPassword, DBStorage, DBStorageType, DBIops, DBMultiAZ]
       - Label:
           default: Networking
-        Parameters: [VPC, ExternalSubnets, InternalSubnets, AssociatePublicIpAddress, CidrBlock, KeyName, SSLCertificateName]
+        Parameters: [VPC, ExternalSubnets, InternalSubnets, AssociatePublicIpAddress, CidrBlock, KeyName, SSLCertificateType, SSLCertificateName]
       - Label:
           default: DNS (Optional)
         Parameters: [HostedZone, SubDomainName]
@@ -73,7 +73,9 @@ Metadata:
       SubDomainName:
         default: Sub-domain for Hosted Zone (optional)
       SSLCertificateName:
-        default: SSL Certificate Name
+        default: SSL Certificate Name or ARN Reference
+      SSLCertificateType:
+        default: SSL Certificate Reference Type
       ExternalSubnets:
         default: External subnets *
       InternalSubnets:
@@ -273,11 +275,17 @@ Parameters:
     Default: ""
     Type: String
   SSLCertificateName:
-    Description: The name of your Server Certificate to use for HTTPS.  Leave blank if you don't want to set up HTTPS at this time
+    Description: The name of your Server Certificate to use for HTTPS when using IAM, or the full ARN of your ACM certificate when using ACM.  Leave blank if you don't want to set up HTTPS at this time
     Default: ""
-    MinLength: 0
-    MaxLength: 50
     Type: String
+  SSLCertificateType:
+    Description: The type of reference contained in SSLCertificateName, iam or arn (acm)
+    Default: "iam"
+    Type: String
+    AllowedValues:
+      - iam
+      - arn
+    ConstraintDescription: Must be 'iam' or 'arn'.
   StartCollectd:
     AllowedValues:
       - true
@@ -313,6 +321,8 @@ Conditions:
     !Not [!Equals [!Ref SubDomainName, ""]]
   DoSSL:
     !Not [!Equals [!Ref SSLCertificateName, ""]]
+  DoSSLAsARN:
+    !Equals [!Ref SSLCertificateType, "arn"]
   GovCloudCondition:
     !Equals [!Ref "AWS::Region", us-gov-west-1]
 Mappings:
@@ -990,10 +1000,13 @@ Resources:
         - CertificateArn:
             !If
               - DoSSL
-              - !Sub
-                - "arn:aws:iam::${AccountId}:server-certificate/${SSLCertificateName}"
-                - AccountId: !Ref "AWS::AccountId"
-                  SSLCertificateName: !Ref SSLCertificateName
+              - !If
+                - DoSSLAsARN
+                - !Ref SSLCertificateName
+                - !Sub
+                  - "arn:aws:iam::${AccountId}:server-certificate/${SSLCertificateName}"
+                  - AccountId: !Ref "AWS::AccountId"
+                    SSLCertificateName: !Ref SSLCertificateName
               - !Ref "AWS::NoValue"
       DefaultActions:
         - Type: forward
