@@ -151,7 +151,7 @@ Parameters:
   CatalinaOpts:
     Description: Java options passed to the JVM that runs Confluence.
     Type: String
-  DatadogAPIKey:
+  DatadogApiKey:
     Type: String
     Default: ""
   DatadogTags:
