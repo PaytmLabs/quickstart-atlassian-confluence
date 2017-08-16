@@ -550,11 +550,11 @@ Resources:
                     - "\n"
                     -
                       - "[Main]"
-                      - "dd_url: https://app.datadoghq.com",
+                      - "dd_url: https://app.datadoghq.com"
                       - !Sub
                         - "api_key: ${APIKey}"
                         - APIKey: !Ref DatadogApiKey
-                      - "log_to_syslog: no",
+                      - "log_to_syslog: no"
                       - !If
                         - DoDatadogTags
                         - !Sub
