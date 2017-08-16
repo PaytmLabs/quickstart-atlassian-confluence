@@ -24,7 +24,7 @@ Metadata:
         Parameters: [HostedZone, SubDomainName]
       - Label:
           default: Advanced (Optional)
-        Parameters: [CatalinaOpts, StartCollectd, DBSnapshotId, ConfluenceDownloadUrl]
+        Parameters: [CatalinaOpts, DatadogApiKey, DatadogTags, StartCollectd, DBSnapshotId, ConfluenceDownloadUrl]
     ParameterLabels:
       AssociatePublicIpAddress:
         default: Assign public IP
@@ -46,6 +46,10 @@ Metadata:
         default: Minimum number of cluster nodes
       ClusterNodeInstanceType:
         default: Confluence cluster node instance type
+      DatadogApiKey:
+        default: Datadog API Key
+      DatadogTags:
+        default: Datadog tags to apply to instances
       DBInstanceClass:
         default: Database instance class
       DBMasterUserPassword:
@@ -185,6 +189,12 @@ Parameters:
   CatalinaOpts:
     Description: Java options passed to the JVM that runs Confluence.
     Type: String
+  DatadogAPIKey:
+    Type: String
+    Default: ""
+  DatadogTags:
+    Type: String
+    Default: ""
   DBInstanceClass:
     AllowedValues:
       - db.m4.large
@@ -311,6 +321,10 @@ Conditions:
     !Equals [!Ref DBStorageType, Provisioned IOPS]
   DoCollectd:
     !Equals [!Ref StartCollectd, true]
+  DoDatadog:
+    !Not [!Equals [!Ref DatadogApiKey, ""]]
+  DoDatadogTags:
+    !Not [!Equals [!Ref DatadogTags, ""]]
   DoRestoreFromRDSSnapshot:
     !Not [!Equals [!Ref DBSnapshotId, ""]]
   DoSetDBMasterUserPassword:
@@ -600,6 +614,26 @@ Resources:
                       - StackName: !Ref "AWS::StackName"
                         Region: !Ref "AWS::Region"
                     - runas=root
+            /etc/dd-agent/datadog.conf:
+              content:
+                !If
+                  - DoDatadog
+                  - !Join
+                    - "\n"
+                    -
+                      - "[Main]"
+                      - "dd_url: https://app.datadoghq.com",
+                      - !Sub
+                        - "api_key: ${APIKey}"
+                        - APIKey: !Ref DatadogApiKey
+                      - "log_to_syslog: no",
+                      - !If
+                        - DoDatadogTags
+                        - !Sub
+                          - "tags: ${Tags}"
+                          - Tags: !Ref DatadogTags
+                        - ""
+                  - !Ref "AWS::NoValue"
           commands:
             010_make_mount_point:
               command: mkdir -p /media/atl
@@ -625,6 +659,14 @@ Resources:
             040_make_shared_home_dir:
               command: mkdir -p /media/atl/confluence/shared-home
               ignoreErrors: false
+            050_install_datadog:
+              command:
+                !If
+                  - DoDatadog
+                  - !Sub
+                    - "DD_API_KEY=${APIKey} bash -c \"$(curl -L https://raw.githubusercontent.com/DataDog/dd-agent/master/packaging/datadog-agent/source/install_agent.sh)\""
+                    - APIKey: !Ref DatadogApiKey
+                  - "echo \"Datadog not configured\""
           services:
             sysvinit:
               cfn-hup:
@@ -633,6 +675,8 @@ Resources:
                 files: [/etc/cfn/cfn-hup.conf, /etc/cfn/hooks.d/cfn-auto-reloader.conf]
               collectd:
                 !If [DoCollectd, {enabled: true, ensureRunning: true}, !Ref "AWS::NoValue"]
+              datadog-agent:
+                !If [DoDatadog, {enabled: true, ensureRunning: true}, !Ref "AWS::NoValue"]
               rpcbind:
                 enabled: true
                 ensureRunning: true
