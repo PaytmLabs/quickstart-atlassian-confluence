@@ -497,6 +497,7 @@ Resources:
                     - "ATL_CONFLUENCE_DATA_CENTER=true"
                     - "ATL_NGINX_ENABLED=false"
                     - "ATL_POSTGRES_ENABLED=false"
+                    - !Sub ["ATL_COLLECTD_ENABLED=${CollectdEnabled}", CollectdEnabled: !If [DoCollectd, "true", "false"]]
                     - !Sub ["ATL_PROXY_NAME=${ProxyName}", ProxyName: !If [UseHostedZone, !Ref LoadBalancerCname, !GetAtt LoadBalancer.DNSName]]
                     - "ATL_SSL_SELF_CERT_ENABLED=false"
                     - !If [DoSSL, "ATL_SSL_PROXY=true", !Ref "AWS::NoValue"]
@@ -505,6 +506,8 @@ Resources:
                     - !Sub ["ATL_HAZELCAST_NETWORK_AWS_IAM_REGION=${HazelcastAWSRegion}", HazelcastAWSRegion: !Ref "AWS::Region"]
                     - "ATL_HAZELCAST_NETWORK_AWS_TAG_KEY=Cluster"
                     - !Sub ["ATL_HAZELCAST_NETWORK_AWS_TAG_VALUE=${HazelcastAWSTagValue}", HazelcastAWSTagValue: !Ref "AWS::StackName"]
+            /root/atl-init-confluence-fix-collectd-issue.diff:
+              source: https://paytmlabs-atlassian-software.s3.amazonaws.com/patches/atl-init-confluence-fix-collectd-issue.diff
             /etc/cfn/cfn-hup.conf:
               content: !Join
                 - "\n"
@@ -549,6 +552,12 @@ Resources:
               ignoreErrors: false
             030_mount_all:
               command: mount -a
+              ignoreErrors: false
+            034_yum_install_patch:
+              command: yum -y install patch
+              ignoreErrors: false
+            035_patch_atl_confluence_init_collectd:
+              command: patch /etc/init.d/atl-init-confluence /root/atl-init-confluence-fix-collectd-issue.diff
               ignoreErrors: false
             040_make_shared_home_dir:
               command: mkdir -p /media/atl/confluence/shared-home
