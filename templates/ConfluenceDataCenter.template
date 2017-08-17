@@ -899,6 +899,26 @@ Resources:
                     - !Sub ["ATL_HAZELCAST_NETWORK_AWS_TAG_VALUE=${HazelcastAWSTagValue}", HazelcastAWSTagValue: !Ref "AWS::StackName"]
             /root/atl-init-synchrony-fix-collectd-issue.diff:
               source: https://paytmlabs-atlassian-software.s3.amazonaws.com/patches/atl-init-synchrony-fix-collectd-issue.diff
+            /etc/dd-agent/datadog.conf:
+              content:
+                !If
+                  - DoDatadog
+                  - !Join
+                    - "\n"
+                    -
+                      - "[Main]"
+                      - "dd_url: https://app.datadoghq.com"
+                      - !Sub
+                        - "api_key: ${APIKey}"
+                        - APIKey: !Ref DatadogApiKey
+                      - "log_to_syslog: no"
+                      - !If
+                        - DoDatadogTags
+                        - !Sub
+                          - "tags: ${Tags}"
+                          - Tags: !Ref DatadogTags
+                        - ""
+                  - !Ref "AWS::NoValue"
             /etc/cfn/cfn-hup.conf:
               content:
                 !Join
@@ -954,6 +974,14 @@ Resources:
             040_make_shared_home_dir:
               command: mkdir -p /media/atl/confluence/shared-home
               ignoreErrors: false
+            050_install_datadog:
+              command:
+                !If
+                  - DoDatadog
+                  - !Sub
+                    - "DD_API_KEY=${APIKey} bash -c \"$(curl -L https://raw.githubusercontent.com/DataDog/dd-agent/master/packaging/datadog-agent/source/install_agent.sh)\""
+                    - APIKey: !Ref DatadogApiKey
+                  - "echo \"Datadog not configured\""
           services:
             sysvinit:
               cfn-hup:
@@ -962,6 +990,8 @@ Resources:
                 files: [/etc/cfn/cfn-hup.conf, /etc/cfn/hooks.d/cfn-auto-reloader.conf]
               collectd:
                 !If [DoCollectd, {enabled: true, ensureRunning: true}, !Ref "AWS::NoValue"]
+              datadog-agent:
+                !If [DoDatadog, {enabled: true, ensureRunning: true}, !Ref "AWS::NoValue"]
               rpcbind:
                 enabled: true
                 ensureRunning: true
