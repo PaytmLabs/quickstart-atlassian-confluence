@@ -24,12 +24,16 @@ Metadata:
         Parameters: [HostedZone, SubDomainName, ExternalDNSName]
       - Label:
           default: Advanced (Optional)
-        Parameters: [CatalinaOpts, DatadogApiKey, DatadogTags, StartCollectd, DBSnapshotId, ConfluenceDownloadUrl]
+        Parameters: [CatalinaOpts, DatadogApiKey, DatadogTags, JVMHeapMinimum, JVMHeapMaximum, StartCollectd, DBSnapshotId, ConfluenceDownloadUrl]
     ParameterLabels:
       AssociatePublicIpAddress:
         default: Assign public IP
       CatalinaOpts:
         default: Catalina options
+      JVMHeapMinimum:
+        default: Minimum JVM Heap Size
+      JVMHeapMaximum:
+        default: Maximum JVM Heap Size
       StartCollectd:
         default: Start the collectd service
       SynchronyClusterNodeMax:
@@ -192,6 +196,12 @@ Parameters:
     Default: c3.xlarge
     Description: Synchrony cluster node instance type.
     Type: String
+  JVMHeapMinimum:
+    Type: String
+    Default: 1024m
+  JVMHeapMaximum:
+    Type: String
+    Default: 1024m
   CatalinaOpts:
     Description: Java options passed to the JVM that runs Confluence.
     Type: String
@@ -589,6 +599,8 @@ Resources:
                           LoadBalancerName: !GetAtt LoadBalancer.DNSName
                     - !Sub ["ATL_CONFLUENCE_INSTALLER_DOWNLOAD_URL=${ConfluenceDownloadUrl}", ConfluenceDownloadUrl: !Ref ConfluenceDownloadUrl]
                     - !Sub ["ATL_CATALINA_OPTS=\"${CatalinaOpts}\"", CatalinaOpts: !Ref CatalinaOpts]
+                    - !Sub ["ATL_JVM_MIN_MEMORY=\"${JVMHeapMinimum}\"", JVMHeapMinimum: !Ref JVMHeapMinimum]
+                    - !Sub ["ATL_JVM_MAX_MEMORY=\"${JVMHeapMaximum}\"", JVMHeapMaximum: !Ref JVMHeapMaximum]
                     - "ATL_RELEASE_S3_BUCKET=atlassian-software"
                     - "ATL_RELEASE_S3_PATH=releases/confluence"
                     - "ATL_APP_DATA_MOUNT_ENABLED=false"
@@ -624,6 +636,8 @@ Resources:
               source: https://paytmlabs-atlassian-software.s3.amazonaws.com/patches/atl-init-confluence-fix-collectd-issue.diff
             /root/atl-init-confluence-dbpool-tuning.diff:
               source: https://paytmlabs-atlassian-software.s3.amazonaws.com/patches/atl-init-confluence-dbpool-tuning.diff
+            /root/atl-init-confluence-heap.diff:
+              source: https://paytmlabs-atlassian-software.s3.amazonaws.com/patches/atl-init-confluence-heap.diff
             /etc/cfn/cfn-hup.conf:
               content: !Join
                 - "\n"
@@ -696,6 +710,8 @@ Resources:
               command: patch /etc/init.d/atl-init-confluence /root/atl-init-confluence-fix-collectd-issue.diff
             036_patch_atl_confluence_init_dbpool:
               command: patch /etc/init.d/atl-init-confluence /root/atl-init-confluence-dbpool-tuning.diff
+            037_patch_atl_confluence_init_heap:
+              command: patch /etc/init.d/atl-init-confluence /root/atl-init-confluence-heap.diff
               ignoreErrors: false
             040_make_shared_home_dir:
               command: mkdir -p /media/atl/confluence/shared-home

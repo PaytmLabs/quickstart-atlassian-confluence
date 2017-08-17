@@ -1,0 +1,15 @@
+--- atl-init-confluence.orig	2017-08-17 11:17:43.935129315 -0400
++++ atl-init-confluence	2017-08-17 11:22:18.850613959 -0400
+@@ -237,6 +237,12 @@
+     atl_log "Cleaning up"
+     rm -rf "$(atl_tempDir)"/installer* >> "${ATL_LOG}" 2>&1
+ 
++    atl_log "Setting JVM heap settings"
++    sed -i \
++      -e "s/-Xms[^ ]*/-Xms${ATL_JVM_MIN_MEMORY}/" \
++      -e "s/-Xmx[^ ]*/-Xmx${ATL_JVM_MAX_MEMORY}/" \
++      ${ATL_CONFLUENCE_INSTALL_DIR}/bin/setenv.sh
++
+     chown -R "${ATL_CONFLUENCE_USER}":"${ATL_CONFLUENCE_USER}" "${ATL_CONFLUENCE_INSTALL_DIR}"
+ 
+     atl_log "${ATL_CONFLUENCE_SHORT_DISPLAY_NAME} installation completed"
