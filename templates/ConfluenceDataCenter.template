@@ -21,7 +21,7 @@ Metadata:
         Parameters: [VPC, ExternalSubnets, InternalSubnets, AssociatePublicIpAddress, CidrBlock, KeyName, SSLCertificateName]
       - Label:
           default: DNS (Optional)
-        Parameters: [HostedZone, SubDomainName]
+        Parameters: [HostedZone, SubDomainName, ExternalDNSName]
       - Label:
           default: Advanced (Optional)
         Parameters: [CatalinaOpts, StartCollectd, DBSnapshotId, ConfluenceDownloadUrl]
@@ -72,6 +72,8 @@ Metadata:
         default: Route 53 Hosted Zone (optional)
       SubDomainName:
         default: Sub-domain for Hosted Zone (optional)
+      ExternalDNSName:
+        default: External DNS Name (optional)
       SSLCertificateName:
         default: SSL Certificate Name
       ExternalSubnets:
@@ -236,6 +238,10 @@ Parameters:
     Description: Leave this field blank to use your stack name as the sub-domain.
     Default: ""
     Type: String
+  ExternalDNSName:
+    Description: If DNS is externally managed, set this to the name that will be CNAME to the ELB
+    Default: ""
+    Type: String
   SSLCertificateName:
     Description: The name of your Server Certificate to use for HTTPS.  Leave blank if you don't want to set up HTTPS at this time
     Default: ""
@@ -271,6 +277,8 @@ Conditions:
     !Not [!Equals [!Ref DBSnapshotId, ""]]
   DoSetDBMasterUserPassword:
     !Not [!Equals [!Ref DBMasterUserPassword, ""]]
+  UseExternalDNSName:
+    !Not [!Equals [!Ref ExternalDNSName, ""]]
   UseHostedZone:
     !Not [!Equals [!Ref HostedZone, ""]]
   UseSubDomainName:
@@ -497,7 +505,7 @@ Resources:
                     - "ATL_CONFLUENCE_DATA_CENTER=true"
                     - "ATL_NGINX_ENABLED=false"
                     - "ATL_POSTGRES_ENABLED=false"
-                    - !Sub ["ATL_PROXY_NAME=${ProxyName}", ProxyName: !If [UseHostedZone, !Ref LoadBalancerCname, !GetAtt LoadBalancer.DNSName]]
+                    - !Sub ["ATL_PROXY_NAME=${ProxyName}", ProxyName: !If [UseExternalDNSName, !Ref ExternalDNSName, !If [UseHostedZone, !Ref LoadBalancerCname, !GetAtt LoadBalancer.DNSName]]]
                     - "ATL_SSL_SELF_CERT_ENABLED=false"
                     - !If [DoSSL, "ATL_SSL_PROXY=true", !Ref "AWS::NoValue"]
                     - !Sub ["ATL_AWS_STACK_NAME=${StackName}", StackName: !Ref "AWS::StackName"]
@@ -715,7 +723,7 @@ Resources:
                     - "ATL_CONFLUENCE_DATA_CENTER=true"
                     - "ATL_NGINX_ENABLED=false"
                     - "ATL_POSTGRES_ENABLED=false"
-                    - !Sub ["ATL_PROXY_NAME=${ProxyName}", ProxyName: !If [UseHostedZone, !Ref LoadBalancerCname, !GetAtt LoadBalancer.DNSName]]
+                    - !Sub ["ATL_PROXY_NAME=${ProxyName}", ProxyName: !If [UseExternalDNSName, !Ref ExternalDNSName, !If [UseHostedZone, !Ref LoadBalancerCname, !GetAtt LoadBalancer.DNSName]]]
                     - "ATL_SSL_SELF_CERT_ENABLED=false"
                     - !If [DoSSL, "ATL_SSL_PROXY=true", !Ref "AWS::NoValue"]
                     - !Sub ["ATL_AWS_STACK_NAME=${StackName}", StackName: !Ref "AWS::StackName"]
@@ -1070,4 +1078,4 @@ Outputs:
     Value: !Sub
       - "${HTTP}://${LoadBalancerDNSName}"
       - HTTP: !If [DoSSL, "https", "http"]
-        LoadBalancerDNSName: !If [UseHostedZone, !Ref LoadBalancerCname, !GetAtt LoadBalancer.DNSName]
+        LoadBalancerDNSName: !If [UseExternalDNSName, !Ref ExternalDNSName, !If [UseHostedZone, !Ref LoadBalancerCname, !GetAtt LoadBalancer.DNSName]]
